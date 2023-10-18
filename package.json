@@ -14,5 +14,6 @@
     "repository": {
       "type": "git",
       "url": "git+https://github.com/jwise7/marko-lazy"
-    }
+    },
+    "type":"module"
   }
