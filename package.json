@@ -1,0 +1,18 @@
+{
+    "name": "marko-lazy",
+    "version": "4.22.0",
+    "description": "Marko based lazy loader",
+    "keywords": [
+      "marko",
+      "marko-widgets",
+      "components"
+    ],
+    "author": {
+      "name": "Jesse Wise"
+    },
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "git+https://github.com/jwise7/marko-lazy"
+    }
+  }

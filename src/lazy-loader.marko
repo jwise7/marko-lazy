@@ -1,0 +1,80 @@
+import renderList from "/lazy-renderers.js";
+class {
+  onCreate(input, output) {
+    this.state = {
+      componentName: input.component,
+      model: input.model,
+      componentRenderer: null
+    };
+  }
+  onMount() {
+    this.checkForLazyLoads = this.checkForLazyLoads.bind(this);
+    this.doCheckForLazyLoads = this.doCheckForLazyLoads.bind(this);
+    window.addEventListener("scroll", this.checkForLazyLoads);
+    window.addEventListener("resize", this.checkForLazyLoads);
+    window.addEventListener("focus", this.checkForLazyLoads);
+    document.addEventListener("checkForLazyLoads", this.checkForLazyLoads)
+    if (document.readyState === "complete") this.checkForLazyLoads();
+    else window.addEventListener("load", this.checkForLazyLoads); // Makes sure lazy loaded components render immediately if in initial viewport
+  }
+  onDestroy() {
+    this.removeListeners();
+  }
+  checkForLazyLoads() {
+    if (typeof this.checkQueued == "undefined" || !this.checkQueued) {
+      this.checkQueued = true;
+      setTimeout(this.doCheckForLazyLoads, 300);
+    }
+  }
+  doCheckForLazyLoads() {
+    this.checkQueued = false;
+    if(typeof this.el === "undefined") return 
+    let bounding = this.el.getBoundingClientRect();
+    let tabIsActive = !document.hidden; // Wait for the tab to be active. Lazy loading times out if tab isn't active.
+    let isHidden = bounding.width === 0 && bounding.height === 0; // When an element is hidden or display:none, getBoundingClientRect returns 0 for all position dimensions. Without this, when viewing mobile the desktop lazy elements would trigger immediately since position.top is equal to 0.
+    if (!tabIsActive || isHidden) return;
+    const SCROLL_BUFFER = 300;
+    // Checking for partial visibility if scrollBuffer is 0. Otherwise checking for buffer space above element.
+    if (
+      bounding.top <= 0 ||
+      (bounding.top <
+        ((window.innerHeight || document.documentElement.clientHeight) + SCROLL_BUFFER) &&
+        bounding.bottom >= 0)
+    ) {
+      this.loadComponent()
+    }
+  }
+  async loadComponent(attempts = 0) {
+    this.removeListeners();
+    try {
+      let r = await renderList(this.state.componentName);
+      if (r != null) {
+        this.once("update", () => {
+          this.el.style.opacity = 0;
+          this.el.style.transition = "opacity 1s";
+          setTimeout(() => (this.el.style.opacity = 1));
+        });
+        return (this.state.componentRenderer = r);
+      }
+    } catch (err) {
+      setTimeout(() => {
+        if(attempts < 3)
+          this.loadComponent(attempts + 1);
+        else
+          console.error(err);
+      },1000)
+    }
+  }
+  removeListeners() {
+    window.removeEventListener("scroll", this.checkForLazyLoads);
+    window.removeEventListener("resize", this.checkForLazyLoads);
+    window.removeEventListener("focus", this.checkForLazyLoads);
+  }
+}
+if(state.componentRenderer != null)
+  ${state.componentRenderer} ...state.model
+else-if(input.skeleton)
+  div style=`content-visibility:auto;${input.skeletonContainerStyle||""}` class=(input.skeletonContainerClass||"")
+    ${input.skeleton.renderBody}
+else
+  div -- &nbsp;
