@@ -30,3 +30,6 @@ export default defineConfig({
     }
 });
 ```
+
+note:  
+this seemed to work best with node v18, your mileage may vary with older node versions.
