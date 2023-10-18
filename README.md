@@ -6,9 +6,9 @@ Create a `lazy-renderers.js` file at your project root that looks something like
 export default async function (componentName) {
   switch (componentName) {
     case "myAwesomeWidget":
-      return await import("/path/to/myAwesomeWidget.marko");
+      return await import("./path/to/myAwesomeWidget.marko");
     case "myAwesomeWidget2":
-      return await import("/path/to/myAwesomeWidget2.marko");
+      return await import("./path/to/myAwesomeWidget2.marko");
   }
 }
 ```
