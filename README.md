@@ -16,7 +16,17 @@ Then, inside a marko file you can use it like this:
 `lazy-loader component="myAwesomeWidget" model={foo:"bar"}`  
 or if you want a loading widget to display you can supply a skeleton like this:  
 ```
-lazy-load component="myAwesomeWidget" model={foo:"bar"}
+lazy-loader component="myAwesomeWidget" model={foo:"bar"}
     @skeleton
         div -- loading...
+```
+To allow lazy loaded components to hot-reload, exclude marko-lazy from the optimized dependency list in your vite config.  
+```
+import { defineConfig } from "vite";
+export default defineConfig({
+    ...
+    optimizeDeps: {
+        exclude: ["marko-lazy"],
+    }
+});
 ```
