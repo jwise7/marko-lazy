@@ -4,7 +4,9 @@ class {
     this.state = {
       componentName: input.component,
       model: input.model,
-      componentRenderer: null
+      componentRenderer: null,
+      renderMethod: input.renderMethod || null,
+      enhanceModel: input.enhanceModel || null
     };
   }
   onMount() {
@@ -47,7 +49,13 @@ class {
   async loadComponent(attempts = 0) {
     this.removeListeners();
     try {
-      let r = await renderList(this.state.componentName);
+      if (this.state.enhanceModel) await this.enhanceModel();
+      let r;
+      if(this.state.renderMethod){
+        r = await this.state.renderMethod();
+      }else
+        r = await renderList(this.state.componentName);
+      
       if (r != null) {
         this.once("update", () => {
           this.el.style.opacity = 0;
@@ -64,6 +72,22 @@ class {
           console.error(err);
       },1000)
     }
+  }
+  enhanceModel() {
+    return new Promise(resolve => {
+      let xReq = new XMLHttpRequest();
+      xReq.onreadystatechange = function () {
+        if (xReq.readyState == 4 && xReq.status == 200) {
+          this.state.model = JSON.parse(xReq.responseText).model;
+          return resolve();
+        }
+      }.bind(this);
+      let data = JSON.stringify(this.state.model);
+      let route = this.state.enhanceModel;
+      xReq.open("POST", route, true);
+      xReq.setRequestHeader("Content-type", "application/json");
+      xReq.send(data);
+    });
   }
   removeListeners() {
     window.removeEventListener("scroll", this.checkForLazyLoads);
