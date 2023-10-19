@@ -20,6 +20,23 @@ lazy-loader component="myAwesomeWidget" model={foo:"bar"}
     @skeleton
         div -- loading...
 ```
+
+
+Alternatively you can use the `renderMethod` prop to pass in a function that resolves to the component. (*Note: this may not work as expected in the root component*)
+```
+$ let renderMethod = async () => {
+  return await import('./path/to/myAwesomeWidget.marko')
+}
+lazy-loader component="myAwesomeWidget" model={foo:"bar"} renderMethod=renderMethod
+  @skeleton
+    div -- loading...
+```
+
+Pass a url to the `enhanceModel` prop to have the lazy-loader fetch data from your server that gets appended to the model.
+```
+lazy-loader component="myAwesomeWidget" model={foo:"bar"} enhanceModel="/path/to/data"
+```
+
 To allow lazy loaded components to hot-reload, exclude marko-lazy from the optimized dependency list in your vite config.  
 ```
 import { defineConfig } from "vite";
