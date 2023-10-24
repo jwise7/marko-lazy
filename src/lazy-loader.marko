@@ -55,8 +55,15 @@ class {
         r = await this.state.renderMethod();
       }else
         r = await renderList(this.state.componentName);
-      
-      if (r != null) {
+      if(typeof r == "string"){
+        let res = await fetch(r,{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify(this.state.model)
+        })
+        this.el.innerHTML = await res.text()
+      }
+      else if (r != null) {
         this.once("update", () => {
           this.el.style.opacity = 0;
           this.el.style.transition = "opacity 1s";
