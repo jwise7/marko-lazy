@@ -48,5 +48,26 @@ export default defineConfig({
 });
 ```
 
+## basic example code for server-side rendering of a single marko component in an express controller for use with the server side rendering option of lazy loaded components
+```
+import icon from '../path/to/icon.marko'
+const lazyComponents = {
+    "icon":icon
+}
+export const getHTMLComponent = async(req,res)=>{
+  let model = req.body || {};
+	let componentName = String(req.params.componentName).replace(/[^0-9A-Za-z\-\_\/\?\.]/g,'');
+    if(typeof lazyComponents[componentName] == "undefined") return res.json({error:"invalid component"});
+    let html = await new Promise((resolve) => {
+        lazyComponents[componentName].renderToString(model, (err, result) => {
+            if(err) console.log(err);
+            resolve(result)
+        });
+    });
+    res.set('Content-Type', 'text/html');
+    res.send(html);
+}
+```
+
 note:  
-this seemed to work best with node v18, your mileage may vary with older node versions.
+this project seemed to work best with node v18, your mileage may vary with older node versions.
