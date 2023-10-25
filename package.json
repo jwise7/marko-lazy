@@ -1,6 +1,6 @@
 {
     "name": "marko-lazy",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "description": "Marko based lazy loader",
     "keywords": [
       "marko",

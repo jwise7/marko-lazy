@@ -6,7 +6,8 @@ class {
       model: input.model,
       componentRenderer: null,
       renderMethod: input.renderMethod || null,
-      enhanceModel: input.enhanceModel || null
+      enhanceModel: input.enhanceModel || null,
+      rawHtml:null
     };
   }
   onMount() {
@@ -61,7 +62,7 @@ class {
           headers:{"Content-Type":"application/json"},
           body:JSON.stringify(this.state.model)
         })
-        this.el.innerHTML = await res.text()
+        this.state.rawHtml = await res.text()
       }
       else if (r != null) {
         this.once("update", () => {
@@ -102,7 +103,9 @@ class {
     window.removeEventListener("focus", this.checkForLazyLoads);
   }
 }
-if(state.componentRenderer != null)
+if(state.rawHtml != null)
+  -- $!{state.rawHtml}
+else-if(state.componentRenderer != null)
   ${state.componentRenderer} ...state.model
 else-if(input.skeleton)
   div style=`content-visibility:auto;${input.skeletonContainerStyle||""}` class=(input.skeletonContainerClass||"")
