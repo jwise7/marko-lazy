@@ -8,23 +8,25 @@ class {
       renderMethod: input.renderMethod || null,
       enhanceModel: input.enhanceModel || null,
       customLoadEvent: input.customLoadEvent || false,
-      customLoadEventTriggered: false,
       rawHtml:null
     };
   }
   onMount() {
-    this.checkForLazyLoads = this.checkForLazyLoads.bind(this);
-    this.doCheckForLazyLoads = this.doCheckForLazyLoads.bind(this);
-    this.doCustomLoadEvent = this.doCustomLoadEvent.bind(this);
-    window.addEventListener("scroll", this.checkForLazyLoads);
-    window.addEventListener("resize", this.checkForLazyLoads);
-    window.addEventListener("focus", this.checkForLazyLoads);
-    document.addEventListener("checkForLazyLoads", this.checkForLazyLoads)
-    if (document.readyState === "complete") this.checkForLazyLoads();
-    else window.addEventListener("load", this.checkForLazyLoads); // Makes sure lazy loaded components render immediately if in initial viewport
-
-    //set a custom trigger to bypass checks and just load component
-    if(this.state.customLoadEvent) document.addEventListener(this.state.customLoadEvent, this.doCustomLoadEvent)
+    if(this.state.customLoadEvent && this.state.customLoadEvent !== "") {
+      this.loadComponent = this.loadComponent.bind(this);
+      //set a custom trigger to bypass checks and just load component
+      if(this.state.customLoadEvent) document.addEventListener(this.state.customLoadEvent, this.loadComponent)
+    }
+    else{
+      this.checkForLazyLoads = this.checkForLazyLoads.bind(this);
+      this.doCheckForLazyLoads = this.doCheckForLazyLoads.bind(this);
+      window.addEventListener("scroll", this.checkForLazyLoads);
+      window.addEventListener("resize", this.checkForLazyLoads);
+      window.addEventListener("focus", this.checkForLazyLoads);
+      document.addEventListener("checkForLazyLoads", this.checkForLazyLoads)
+      if (document.readyState === "complete") this.checkForLazyLoads();
+      else window.addEventListener("load", this.checkForLazyLoads); // Makes sure lazy loaded components render immediately if in initial viewport
+    }
   }
   onDestroy() {
     this.removeListeners();
@@ -35,14 +37,9 @@ class {
       setTimeout(this.doCheckForLazyLoads, 300);
     }
   }
-  doCustomLoadEvent(){
-    this.state.customLoadEventTriggered = true
-    this.checkForLazyLoads()
-  }
   doCheckForLazyLoads() {
     this.checkQueued = false;
     if(typeof this.el === "undefined") return
-    if(this.state.customLoadEvent && !this.state.customLoadEventTriggered) return //disables auto load if custom event exists
     let bounding = this.el.getBoundingClientRect();
     let tabIsActive = !document.hidden; // Wait for the tab to be active. Lazy loading times out if tab isn't active.
     let isHidden = bounding.width === 0 && bounding.height === 0; // When an element is hidden or display:none, getBoundingClientRect returns 0 for all position dimensions. Without this, when viewing mobile the desktop lazy elements would trigger immediately since position.top is equal to 0.
@@ -117,8 +114,6 @@ class {
 if(state.rawHtml != null)
   -- $!{state.rawHtml}
 else-if(state.componentRenderer != null)
-  if(state.customRenderer)
-    $ console.log(state.componentRenderer)
   ${state.componentRenderer} ...state.model
 else-if(input.skeleton)
   div style=`content-visibility:auto;${input.skeletonContainerStyle||""}` class=(input.skeletonContainerClass||"")
