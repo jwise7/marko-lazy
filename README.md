@@ -59,7 +59,7 @@ export default defineConfig({
 });
 ```
 
-### basic example code for server-side rendering of a single marko component in an express controller for use with the server side rendering option of lazy loaded components
+### example code for server-side rendering of a single marko component in express
 ```
 import icon from '../path/to/icon.marko'
 const lazyComponents = {
