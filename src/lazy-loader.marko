@@ -7,12 +7,12 @@ class {
       componentRenderer: null,
       renderMethod: input.renderMethod || null,
       enhanceModel: input.enhanceModel || null,
-      customLoadEvent: input.customLoadEvent || false,
+      customLoadEvent: input.customLoadEvent || null,
       rawHtml:null
     };
   }
   onMount() {
-    if(this.state.customLoadEvent && this.state.customLoadEvent !== "") {
+    if(this.state.customLoadEvent && this.state.customLoadEvent !== null) {
       this.loadComponent = this.loadComponent.bind(this);
       //set a custom trigger to bypass checks and just load component
       if(this.state.customLoadEvent) document.addEventListener(this.state.customLoadEvent, this.loadComponent)
@@ -109,7 +109,7 @@ class {
     window.removeEventListener("scroll", this.checkForLazyLoads);
     window.removeEventListener("resize", this.checkForLazyLoads);
     window.removeEventListener("focus", this.checkForLazyLoads);
-    if(this.state.customLoadEvent) document.removeEventListener(this.state.customLoadEvent, this.loadComponent)
+    if(this.state.customLoadEvent !== null) document.removeEventListener(this.state.customLoadEvent, this.loadComponent)
   }
 }
 if(state.rawHtml != null)
