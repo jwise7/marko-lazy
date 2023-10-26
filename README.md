@@ -14,14 +14,15 @@ export default async function (componentName) {
 ```
 Then, inside a marko file you can use it like this:  
 `lazy-loader component="myAwesomeWidget" model={foo:"bar"}`  
-or if you want a loading widget to display you can supply a skeleton like this:  
+### @skeleton (optional)
+If you want a placeholder loading widget to display you can supply a skeleton like this:  
 ```
 lazy-loader component="myAwesomeWidget" model={foo:"bar"}
     @skeleton
         div -- loading...
 ```
 
-
+### renderMethod (optional)
 Alternatively you can use the `renderMethod` prop to pass in a function that resolves to the component. (*Note: this may not work as expected in the root component*)
 ```
 $ let renderMethod = async () => {
@@ -31,12 +32,22 @@ lazy-loader component="myAwesomeWidget" model={foo:"bar"} renderMethod=renderMet
   @skeleton
     div -- loading...
 ```
-
-Pass a url to the `enhanceModel` prop to have the lazy-loader fetch data from your server that gets appended to the model.
+### enhanceModel (optional)
+Pass a url to the `enhanceModel` property to have the lazy-loader fetch data from your server that gets appended to the model before attempting to render it.
 ```
 lazy-loader component="myAwesomeWidget" model={foo:"bar"} enhanceModel="/path/to/data"
 ```
+### customLoadEvent (optional)
+If the customLoadEvent property is set, then view-based lazy loading will be disabled and it will instead attach a listener to the custom load event.  
+Example:  
+```
+lazy-loader component="pop-up" customLoadEvent="myFormSubmit" model={foo:"bar"}
 
+//^that would only render when the myFormSubmit event is fired elsewhere in code like this:
+
+document.dispatchEvent(new CustomEvent("myFormSubmit"));
+```
+### vite config note
 To allow lazy loaded components to hot-reload, exclude marko-lazy from the optimized dependency list in your vite config.  
 ```
 import { defineConfig } from "vite";
@@ -48,7 +59,7 @@ export default defineConfig({
 });
 ```
 
-## basic example code for server-side rendering of a single marko component in an express controller for use with the server side rendering option of lazy loaded components
+### basic example code for server-side rendering of a single marko component in an express controller for use with the server side rendering option of lazy loaded components
 ```
 import icon from '../path/to/icon.marko'
 const lazyComponents = {
