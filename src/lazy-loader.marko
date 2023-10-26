@@ -7,18 +7,26 @@ class {
       componentRenderer: null,
       renderMethod: input.renderMethod || null,
       enhanceModel: input.enhanceModel || null,
+      customLoadEvent: input.customLoadEvent || null,
       rawHtml:null
     };
   }
   onMount() {
-    this.checkForLazyLoads = this.checkForLazyLoads.bind(this);
-    this.doCheckForLazyLoads = this.doCheckForLazyLoads.bind(this);
-    window.addEventListener("scroll", this.checkForLazyLoads);
-    window.addEventListener("resize", this.checkForLazyLoads);
-    window.addEventListener("focus", this.checkForLazyLoads);
-    document.addEventListener("checkForLazyLoads", this.checkForLazyLoads)
-    if (document.readyState === "complete") this.checkForLazyLoads();
-    else window.addEventListener("load", this.checkForLazyLoads); // Makes sure lazy loaded components render immediately if in initial viewport
+    if(this.state.customLoadEvent && this.state.customLoadEvent !== null) {
+      this.loadComponent = this.loadComponent.bind(this);
+      //set a custom trigger to bypass checks and just load component
+      if(this.state.customLoadEvent) document.addEventListener(this.state.customLoadEvent, this.loadComponent)
+    }
+    else{
+      this.checkForLazyLoads = this.checkForLazyLoads.bind(this);
+      this.doCheckForLazyLoads = this.doCheckForLazyLoads.bind(this);
+      window.addEventListener("scroll", this.checkForLazyLoads);
+      window.addEventListener("resize", this.checkForLazyLoads);
+      window.addEventListener("focus", this.checkForLazyLoads);
+      document.addEventListener("checkForLazyLoads", this.checkForLazyLoads)
+      if (document.readyState === "complete") this.checkForLazyLoads();
+      else window.addEventListener("load", this.checkForLazyLoads); // Makes sure lazy loaded components render immediately if in initial viewport
+    }
   }
   onDestroy() {
     this.removeListeners();
@@ -31,7 +39,7 @@ class {
   }
   doCheckForLazyLoads() {
     this.checkQueued = false;
-    if(typeof this.el === "undefined") return 
+    if(typeof this.el === "undefined") return
     let bounding = this.el.getBoundingClientRect();
     let tabIsActive = !document.hidden; // Wait for the tab to be active. Lazy loading times out if tab isn't active.
     let isHidden = bounding.width === 0 && bounding.height === 0; // When an element is hidden or display:none, getBoundingClientRect returns 0 for all position dimensions. Without this, when viewing mobile the desktop lazy elements would trigger immediately since position.top is equal to 0.
@@ -101,6 +109,7 @@ class {
     window.removeEventListener("scroll", this.checkForLazyLoads);
     window.removeEventListener("resize", this.checkForLazyLoads);
     window.removeEventListener("focus", this.checkForLazyLoads);
+    if(this.state.customLoadEvent !== null) document.removeEventListener(this.state.customLoadEvent, this.loadComponent)
   }
 }
 if(state.rawHtml != null)
