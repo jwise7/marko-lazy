@@ -109,6 +109,7 @@ class {
     window.removeEventListener("scroll", this.checkForLazyLoads);
     window.removeEventListener("resize", this.checkForLazyLoads);
     window.removeEventListener("focus", this.checkForLazyLoads);
+    document.removeEventListener("checkForLazyLoads", this.checkForLazyLoads)
     if(this.state.customLoadEvent !== null) document.removeEventListener(this.state.customLoadEvent, this.loadComponent)
   }
 }
