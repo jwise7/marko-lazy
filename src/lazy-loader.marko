@@ -7,10 +7,8 @@ class {
       componentRenderer: null,
       renderMethod: input.renderMethod || null,
       enhanceModel: input.enhanceModel || null,
-      //if you are using enhanceModel, bound fns will be overwritten and unusable 
-      //this allows you to pass in fns to the component outside of enhanceModel
-      fnPassthrough: input.boundfns || {}, 
       customLoadEvent: input.customLoadEvent || null,
+      fnPassthrough: input.fnPassthrough || {}, 
       rawHtml:null
     };
   }
