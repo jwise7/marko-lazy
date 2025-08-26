@@ -37,6 +37,12 @@ Pass a url to the `enhanceModel` property to have the lazy-loader fetch data fro
 ```
 lazy-loader component="myAwesomeWidget" model={foo:"bar"} enhanceModel="/path/to/data"
 ```
+### fnPassthrough (optional)
+if you are using `enhanceModel`, functions that you attempt to passthrough in the `model` will not be usable.
+Pass any number of functions to the `fnPassthrough` property in order to have access to those on the lazy loaded component
+```
+lazy-loader component="myAwesomeWidget" model={foo:"bar"} fnPassthrough={doSomething: component.doSomething.bind(component)} enhanceModel="/path/to/data"
+```
 ### customLoadEvent (optional)
 If the customLoadEvent property is set, then view-based lazy loading will be disabled and it will instead attach a listener to the custom load event.  
 Example:  

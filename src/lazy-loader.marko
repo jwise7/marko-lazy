@@ -8,6 +8,7 @@ class {
       renderMethod: input.renderMethod || null,
       enhanceModel: input.enhanceModel || null,
       customLoadEvent: input.customLoadEvent || null,
+      fnPassthrough: input.fnPassthrough || {}, 
       rawHtml:null
     };
   }
@@ -116,7 +117,7 @@ class {
 if(state.rawHtml != null)
   -- $!{state.rawHtml}
 else-if(state.componentRenderer != null)
-  ${state.componentRenderer} ...state.model
+  ${state.componentRenderer} ...state.model ...state.fnPassthrough
 else-if(input.skeleton)
   div style=`content-visibility:auto;${input.skeletonContainerStyle||""}` class=(input.skeletonContainerClass||"")
     ${input.skeleton.renderBody}
