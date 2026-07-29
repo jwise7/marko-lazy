@@ -1,124 +1,453 @@
 import renderList from "../../../lazy-renderers.js";
+import {
+  buildContainerStyle,
+  DEFAULT_PREFETCH_BUFFER,
+  DEFAULT_PREFETCH_ROOT_MARGIN,
+  DEFAULT_RENDER_BUFFER,
+  DEFAULT_RENDER_ROOT_MARGIN,
+  getRetryDelay,
+  isWithinBuffer,
+} from "./lazy-loader-utils.js";
+
 class {
-  onCreate(input, output) {
+  onCreate(input) {
+    const mode = input.mode || "client";
+    const stableLayout =
+      input.layout === "stable" ||
+      mode === "server" ||
+      Boolean(input.reserveBlockSize) ||
+      Boolean(input.intrinsicSize) ||
+      Boolean(input.aspectRatio);
+
     this.state = {
       componentName: input.component,
-      model: input.model,
       componentRenderer: null,
-      renderMethod: input.renderMethod || null,
-      enhanceModel: input.enhanceModel || null,
-      customLoadEvent: input.customLoadEvent || null,
-      rawHtml:null
+      error: null,
+      loaded: mode === "server",
+      loading: false,
+      mode,
+      model: input.model,
+      rawHtml: null,
+      stableLayout,
     };
+
+    this.renderMethod = input.renderMethod || null;
+    this.enhanceModelRoute = input.enhanceModel || null;
+    this.customLoadEvent = input.customLoadEvent || null;
+    this.prefetchRootMargin =
+      input.prefetchRootMargin || DEFAULT_PREFETCH_ROOT_MARGIN;
+    this.renderRootMargin =
+      input.rootMargin || input.renderRootMargin || DEFAULT_RENDER_ROOT_MARGIN;
+    this.prefetchBuffer = this.getNumberOption(
+      input.prefetchBuffer,
+      DEFAULT_PREFETCH_BUFFER,
+    );
+    this.renderBuffer = this.getNumberOption(
+      input.scrollBuffer,
+      this.getNumberOption(input.renderBuffer, DEFAULT_RENDER_BUFFER),
+    );
+    this.maxRetries = this.getNumberOption(input.maxRetries, 3);
+    this.retryDelay = this.getNumberOption(input.retryDelay, 1000);
+    this.requestTimeout = this.getNumberOption(input.requestTimeout, 10000);
+    this.layoutShiftThreshold = this.getNumberOption(
+      input.layoutShiftThreshold,
+      8,
+    );
+    this.preserveReservedSpace = input.preserveReservedSpace !== false;
+    this.debug = input.debug === true;
+    this.hasSkeleton = Boolean(input.skeleton);
+    this.containerStyle = buildContainerStyle(input);
+    this.abortControllers = new Set();
   }
+
   onMount() {
-    if(this.state.customLoadEvent && this.state.customLoadEvent !== null) {
-      this.loadComponent = this.loadComponent.bind(this);
-      //set a custom trigger to bypass checks and just load component
-      if(this.state.customLoadEvent) document.addEventListener(this.state.customLoadEvent, this.loadComponent)
+    this.destroyed = false;
+    this.loadComponent = this.loadComponent.bind(this);
+    this.checkForLazyLoads = this.checkForLazyLoads.bind(this);
+    this.doCheckForLazyLoads = this.doCheckForLazyLoads.bind(this);
+    this.handlePrefetchIntersection =
+      this.handlePrefetchIntersection.bind(this);
+    this.handleRenderIntersection = this.handleRenderIntersection.bind(this);
+
+    if (this.state.mode === "server") return;
+
+    this.warnAboutMissingLayoutContract();
+
+    if (this.customLoadEvent) {
+      document.addEventListener(this.customLoadEvent, this.loadComponent);
+      return;
     }
-    else{
-      this.checkForLazyLoads = this.checkForLazyLoads.bind(this);
-      this.doCheckForLazyLoads = this.doCheckForLazyLoads.bind(this);
-      window.addEventListener("scroll", this.checkForLazyLoads);
-      window.addEventListener("resize", this.checkForLazyLoads);
-      window.addEventListener("focus", this.checkForLazyLoads);
-      document.addEventListener("checkForLazyLoads", this.checkForLazyLoads)
-      if (document.readyState === "complete") this.checkForLazyLoads();
-      else window.addEventListener("load", this.checkForLazyLoads); // Makes sure lazy loaded components render immediately if in initial viewport
+
+    document.addEventListener("checkForLazyLoads", this.checkForLazyLoads);
+
+    if (typeof window.IntersectionObserver === "function") {
+      this.setupIntersectionObservers();
+    } else {
+      this.setupFallbackListeners();
     }
   }
+
   onDestroy() {
-    this.removeListeners();
+    this.destroyed = true;
+    this.disconnectTriggers();
+    this.abortRequests();
+    this.resolveRetryWait();
   }
-  checkForLazyLoads() {
-    if (typeof this.checkQueued == "undefined" || !this.checkQueued) {
-      this.checkQueued = true;
-      setTimeout(this.doCheckForLazyLoads, 300);
+
+  getNumberOption(value, fallback) {
+    return typeof value === "number" && Number.isFinite(value)
+      ? Math.max(0, value)
+      : fallback;
+  }
+
+  setupIntersectionObservers() {
+    this.prefetchObserver = new window.IntersectionObserver(
+      this.handlePrefetchIntersection,
+      {
+        rootMargin: this.prefetchRootMargin,
+        threshold: 0,
+      },
+    );
+    this.renderObserver = new window.IntersectionObserver(
+      this.handleRenderIntersection,
+      {
+        rootMargin: this.renderRootMargin,
+        threshold: 0,
+      },
+    );
+    this.prefetchObserver.observe(this.el);
+    this.renderObserver.observe(this.el);
+  }
+
+  setupFallbackListeners() {
+    window.addEventListener("scroll", this.checkForLazyLoads, {
+      passive: true,
+    });
+    window.addEventListener("resize", this.checkForLazyLoads);
+    window.addEventListener("focus", this.checkForLazyLoads);
+
+    if (document.readyState === "complete") {
+      this.checkForLazyLoads();
+    } else {
+      window.addEventListener("load", this.checkForLazyLoads, { once: true });
     }
   }
-  doCheckForLazyLoads() {
-    this.checkQueued = false;
-    if(typeof this.el === "undefined") return
-    let bounding = this.el.getBoundingClientRect();
-    let tabIsActive = !document.hidden; // Wait for the tab to be active. Lazy loading times out if tab isn't active.
-    let isHidden = bounding.width === 0 && bounding.height === 0; // When an element is hidden or display:none, getBoundingClientRect returns 0 for all position dimensions. Without this, when viewing mobile the desktop lazy elements would trigger immediately since position.top is equal to 0.
-    if (!tabIsActive || isHidden) return;
-    const SCROLL_BUFFER = 300;
-    // Checking for partial visibility if scrollBuffer is 0. Otherwise checking for buffer space above element.
-    if (
-      bounding.top <= 0 ||
-      (bounding.top <
-        ((window.innerHeight || document.documentElement.clientHeight) + SCROLL_BUFFER) &&
-        bounding.bottom >= 0)
-    ) {
-      this.loadComponent()
-    }
-  }
-  async loadComponent(attempts = 0) {
-    this.removeListeners();
-    try {
-      if (this.state.enhanceModel) await this.enhanceModel();
-      let r;
-      if(this.state.renderMethod){
-        r = await this.state.renderMethod();
-      }else
-        r = await renderList(this.state.componentName);
-      if(typeof r == "string"){
-        let res = await fetch(r,{
-          method:"POST",
-          headers:{"Content-Type":"application/json"},
-          body:JSON.stringify(this.state.model)
-        })
-        this.state.rawHtml = await res.text()
-      }
-      else if (r != null) {
-        this.once("update", () => {
-          this.el.style.opacity = 0;
-          this.el.style.transition = "opacity 1s";
-          setTimeout(() => (this.el.style.opacity = 1));
-        });
-        return (this.state.componentRenderer = r);
-      }
-    } catch (err) {
-      setTimeout(() => {
-        if(attempts < 3)
-          this.loadComponent(attempts + 1);
-        else
-          console.error(err);
-      },1000)
-    }
-  }
-  enhanceModel() {
-    return new Promise(resolve => {
-      let xReq = new XMLHttpRequest();
-      xReq.onreadystatechange = function () {
-        if (xReq.readyState == 4 && xReq.status == 200) {
-          this.state.model = JSON.parse(xReq.responseText).model;
-          return resolve();
-        }
-      }.bind(this);
-      let data = JSON.stringify(this.state.model);
-      let route = this.state.enhanceModel;
-      xReq.open("POST", route, true);
-      xReq.setRequestHeader("Content-type", "application/json");
-      xReq.send(data);
+
+  handlePrefetchIntersection(entries) {
+    if (!entries.some((entry) => entry.isIntersecting)) return;
+
+    this.prefetchObserver?.disconnect();
+    this.prepareComponent().catch(() => {
+      // Rendering retries preparation and reports the final failure.
     });
   }
-  removeListeners() {
-    window.removeEventListener("scroll", this.checkForLazyLoads);
-    window.removeEventListener("resize", this.checkForLazyLoads);
-    window.removeEventListener("focus", this.checkForLazyLoads);
-    document.removeEventListener("checkForLazyLoads", this.checkForLazyLoads)
-    if(this.state.customLoadEvent !== null) document.removeEventListener(this.state.customLoadEvent, this.loadComponent)
+
+  handleRenderIntersection(entries) {
+    if (!entries.some((entry) => entry.isIntersecting)) return;
+    this.loadComponent();
+  }
+
+  checkForLazyLoads() {
+    if (this.destroyed || this.checkQueued) return;
+
+    this.checkQueued = true;
+    const requestFrame =
+      window.requestAnimationFrame ||
+      ((callback) => window.setTimeout(callback, 16));
+    this.checkFrame = requestFrame(this.doCheckForLazyLoads);
+  }
+
+  doCheckForLazyLoads() {
+    this.checkQueued = false;
+    this.checkFrame = null;
+    if (this.destroyed || typeof this.el === "undefined" || document.hidden)
+      return;
+
+    const bounding = this.el.getBoundingClientRect();
+    const viewportHeight =
+      window.innerHeight || document.documentElement.clientHeight;
+
+    if (isWithinBuffer(bounding, viewportHeight, this.prefetchBuffer)) {
+      this.prepareComponent().catch(() => {
+        // Rendering retries preparation and reports the final failure.
+      });
+    }
+    if (isWithinBuffer(bounding, viewportHeight, this.renderBuffer)) {
+      this.loadComponent();
+    }
+  }
+
+  prepareComponent() {
+    if (this.preparePromise) return this.preparePromise;
+
+    this.preparePromise = this.doPrepareComponent().catch((error) => {
+      this.preparePromise = null;
+      throw error;
+    });
+    return this.preparePromise;
+  }
+
+  async doPrepareComponent() {
+    let model = this.state.model;
+    if (this.enhanceModelRoute) model = await this.fetchEnhancedModel(model);
+
+    const renderer = this.renderMethod
+      ? await this.renderMethod()
+      : await renderList(this.state.componentName);
+    if (typeof renderer === "string") {
+      this.preparedRawHtml = await this.fetchRawHtml(renderer, model);
+      this.preparedRenderer = null;
+    } else if (renderer != null) {
+      this.preparedRenderer = renderer;
+      this.preparedRawHtml = null;
+    } else {
+      throw new Error(
+        `No lazy renderer was found for "${this.state.componentName}".`,
+      );
+    }
+
+    this.preparedModel = model;
+  }
+
+  loadComponent() {
+    if (this.state.loaded || this.state.mode === "server")
+      return Promise.resolve();
+    if (this.loadPromise) return this.loadPromise;
+
+    this.disconnectTriggers();
+    this.captureReservedHeight();
+    this.state.loading = true;
+    this.state.error = null;
+
+    this.loadPromise = this.loadWithRetries().finally(() => {
+      this.loadPromise = null;
+    });
+    return this.loadPromise;
+  }
+
+  async loadWithRetries() {
+    let lastError;
+
+    for (let attempt = 0; attempt <= this.maxRetries; attempt += 1) {
+      try {
+        await this.prepareComponent();
+        if (this.destroyed) return;
+        this.renderPreparedComponent();
+        return;
+      } catch (error) {
+        lastError = error;
+        this.preparePromise = null;
+        if (this.destroyed || attempt === this.maxRetries) break;
+        await this.waitForRetry(getRetryDelay(this.retryDelay, attempt));
+      }
+    }
+
+    if (this.destroyed) return;
+    this.state.loading = false;
+    this.state.error =
+      lastError || new Error(`Unable to load "${this.state.componentName}".`);
+    console.error(this.state.error);
+  }
+
+  renderPreparedComponent() {
+    this.once("update", () => this.measureRenderedHeight());
+    this.state.model = this.preparedModel;
+    this.state.rawHtml = this.preparedRawHtml;
+    this.state.componentRenderer = this.preparedRenderer;
+    this.state.loading = false;
+    this.state.loaded = true;
+  }
+
+  captureReservedHeight() {
+    if (!this.el) return;
+
+    this.reservedHeight = this.el.getBoundingClientRect().height;
+    if (
+      this.state.stableLayout &&
+      this.preserveReservedSpace &&
+      this.reservedHeight > 0 &&
+      !this.el.style.minHeight
+    ) {
+      this.el.style.minHeight = `${this.reservedHeight}px`;
+    }
+  }
+
+  measureRenderedHeight() {
+    const requestFrame =
+      window.requestAnimationFrame ||
+      ((callback) => window.setTimeout(callback, 16));
+    requestFrame(() => {
+      requestFrame(() => {
+        if (
+          this.destroyed ||
+          !this.el ||
+          typeof this.reservedHeight !== "number"
+        )
+          return;
+
+        const renderedHeight = this.el.getBoundingClientRect().height;
+        const delta = renderedHeight - this.reservedHeight;
+        if (Math.abs(delta) < this.layoutShiftThreshold) return;
+
+        const detail = {
+          component: this.state.componentName,
+          delta,
+          renderedHeight,
+          reservedHeight: this.reservedHeight,
+        };
+        document.dispatchEvent(
+          new CustomEvent("marko-lazy:layout-change", { detail }),
+        );
+        if (this.debug) {
+          console.warn(
+            `[marko-lazy] "${this.state.componentName}" changed height by ${delta}px ` +
+              `(${this.reservedHeight}px reserved, ${renderedHeight}px rendered).`,
+          );
+        }
+      });
+    });
+  }
+
+  async fetchEnhancedModel(model) {
+    const payload = await this.post(this.enhanceModelRoute, model, "json");
+    if (!payload || !Object.prototype.hasOwnProperty.call(payload, "model")) {
+      throw new Error(
+        `The enhanced model response for "${this.state.componentName}" did not include a model.`,
+      );
+    }
+    return payload.model;
+  }
+
+  async fetchRawHtml(route, model) {
+    return this.post(route, model, "text");
+  }
+
+  async post(route, model, responseType) {
+    const controller =
+      typeof AbortController === "function" ? new AbortController() : null;
+    if (controller) this.abortControllers.add(controller);
+
+    const timeout = window.setTimeout(
+      () => controller?.abort(),
+      this.requestTimeout,
+    );
+    try {
+      const response = await fetch(route, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(model),
+        signal: controller?.signal,
+      });
+      if (!response.ok)
+        throw new Error(
+          `Request to "${route}" failed with status ${response.status}.`,
+        );
+      return await (responseType === "json"
+        ? response.json()
+        : response.text());
+    } finally {
+      window.clearTimeout(timeout);
+      if (controller) this.abortControllers.delete(controller);
+    }
+  }
+
+  waitForRetry(delay) {
+    return new Promise((resolve) => {
+      this.retryResolver = resolve;
+      this.retryTimeout = window.setTimeout(() => {
+        this.retryResolver = null;
+        this.retryTimeout = null;
+        resolve();
+      }, delay);
+    });
+  }
+
+  resolveRetryWait() {
+    if (this.retryTimeout) window.clearTimeout(this.retryTimeout);
+    this.retryTimeout = null;
+    if (this.retryResolver) this.retryResolver();
+    this.retryResolver = null;
+  }
+
+  disconnectTriggers() {
+    this.prefetchObserver?.disconnect();
+    this.renderObserver?.disconnect();
+    this.prefetchObserver = null;
+    this.renderObserver = null;
+
+    if (typeof window !== "undefined") {
+      window.removeEventListener("scroll", this.checkForLazyLoads);
+      window.removeEventListener("resize", this.checkForLazyLoads);
+      window.removeEventListener("focus", this.checkForLazyLoads);
+      window.removeEventListener("load", this.checkForLazyLoads);
+
+      if (this.checkFrame) {
+        const cancelFrame = window.cancelAnimationFrame || window.clearTimeout;
+        cancelFrame(this.checkFrame);
+      }
+    }
+
+    document.removeEventListener("checkForLazyLoads", this.checkForLazyLoads);
+    if (this.customLoadEvent)
+      document.removeEventListener(this.customLoadEvent, this.loadComponent);
+  }
+
+  abortRequests() {
+    for (const controller of this.abortControllers) controller.abort();
+    this.abortControllers.clear();
+  }
+
+  warnAboutMissingLayoutContract() {
+    if (
+      !this.debug ||
+      this.customLoadEvent ||
+      this.state.mode === "server" ||
+      this.state.stableLayout ||
+      this.hasSkeleton
+    ) {
+      return;
+    }
+
+    console.warn(
+      `[marko-lazy] "${this.state.componentName}" has no skeleton or reserved size. ` +
+        `Use layout="stable" with reserveBlockSize, intrinsicSize, or aspectRatio to avoid layout shifts.`,
+    );
   }
 }
-if(state.rawHtml != null)
-  -- $!{state.rawHtml}
+
+if(state.stableLayout)
+  div
+    ,class=[
+      "marko-lazy-root",
+      input.class || "",
+      input.skeletonContainerClass || "",
+      {
+        "marko-lazy-loading": state.loading,
+        "marko-lazy-loaded": state.loaded,
+        "marko-lazy-error": state.error,
+      },
+    ]
+    ,style=component.containerStyle
+    ,data-marko-lazy-component=state.componentName
+    ,aria-busy=(state.loading || !state.loaded ? "true" : "false")
+    if(state.mode === "server" && input.content)
+      ${input.content.renderBody}
+    else-if(state.rawHtml != null) -- $!{state.rawHtml}
+    else-if(state.componentRenderer != null)
+      ${state.componentRenderer} ...state.model
+    else-if(state.error && input.error)
+      ${input.error.renderBody}
+    else-if(input.skeleton)
+      ${input.skeleton.renderBody}
+else-if(state.rawHtml != null) -- $!{state.rawHtml}
 else-if(state.componentRenderer != null)
   ${state.componentRenderer} ...state.model
+else-if(state.error && input.error)
+  ${input.error.renderBody}
 else-if(input.skeleton)
-  div style=`content-visibility:auto;${input.skeletonContainerStyle||""}` class=(input.skeletonContainerClass||"")
+  div
+    ,style=`content-visibility:auto;${input.skeletonContainerStyle || ""}`
+    ,class=input.skeletonContainerClass || ""
     ${input.skeleton.renderBody}
 else
   div -- &nbsp;
