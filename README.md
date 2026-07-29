@@ -92,9 +92,9 @@ minor-version upgrade.
 
 The module uses two `IntersectionObserver` instances:
 
-1. At `1200px` from the viewport, it imports the component and starts
+1. At `800px` from the viewport, it imports the component and starts
    `enhanceModel` or server-rendered HTML requests.
-2. At `600px` from the viewport, it renders the prepared result.
+2. At `200px` from the viewport, it renders the prepared result.
 
 Both margins are configurable:
 
@@ -255,26 +255,26 @@ by browser tests or real-user monitoring without enabling console output.
 
 ## Inputs
 
-| Input                   | Default        | Purpose                                                                   |
-| ----------------------- | -------------- | ------------------------------------------------------------------------- |
-| `component`             | —              | Renderer name passed to `lazy-renderers.js`.                              |
-| `model`                 | —              | Input passed to the loaded component or endpoint.                         |
-| `layout`                | `"legacy"`     | Use `"stable"` to retain the layout wrapper.                              |
-| `reserveBlockSize`      | —              | Persistent minimum block size; enables stable layout.                     |
-| `intrinsicSize`         | —              | Estimated offscreen size for `content-visibility`; enables stable layout. |
-| `aspectRatio`           | —              | Reserved aspect ratio; enables stable layout.                             |
-| `preserveReservedSpace` | `true`         | Retain the measured skeleton height in stable mode.                       |
-| `prefetchRootMargin`    | `"1200px 0px"` | Distance at which preparation starts.                                     |
-| `renderRootMargin`      | `"600px 0px"`  | Distance at which rendering starts.                                       |
-| `rootMargin`            | —              | Alias for `renderRootMargin`.                                             |
-| `prefetchBuffer`        | `1200`         | Non-observer fallback prefetch distance.                                  |
-| `renderBuffer`          | `600`          | Non-observer fallback render distance.                                    |
-| `scrollBuffer`          | —              | Alias for `renderBuffer`.                                                 |
-| `requestTimeout`        | `10000`        | Request timeout in milliseconds.                                          |
-| `maxRetries`            | `3`            | Retries after the first failed attempt.                                   |
-| `retryDelay`            | `1000`         | Base exponential retry delay in milliseconds.                             |
-| `layoutShiftThreshold`  | `8`            | Height delta that emits a diagnostic event.                               |
-| `debug`                 | `false`        | Enables development warnings.                                             |
+| Input                   | Default       | Purpose                                                                   |
+| ----------------------- | ------------- | ------------------------------------------------------------------------- |
+| `component`             | —             | Renderer name passed to `lazy-renderers.js`.                              |
+| `model`                 | —             | Input passed to the loaded component or endpoint.                         |
+| `layout`                | `"legacy"`    | Use `"stable"` to retain the layout wrapper.                              |
+| `reserveBlockSize`      | —             | Persistent minimum block size; enables stable layout.                     |
+| `intrinsicSize`         | —             | Estimated offscreen size for `content-visibility`; enables stable layout. |
+| `aspectRatio`           | —             | Reserved aspect ratio; enables stable layout.                             |
+| `preserveReservedSpace` | `true`        | Retain the measured skeleton height in stable mode.                       |
+| `prefetchRootMargin`    | `"800px 0px"` | Distance at which preparation starts.                                     |
+| `renderRootMargin`      | `"200px 0px"` | Distance at which rendering starts.                                       |
+| `rootMargin`            | —             | Alias for `renderRootMargin`.                                             |
+| `prefetchBuffer`        | `800`         | Non-observer fallback prefetch distance.                                  |
+| `renderBuffer`          | `200`         | Non-observer fallback render distance.                                    |
+| `scrollBuffer`          | —             | Alias for `renderBuffer`.                                                 |
+| `requestTimeout`        | `10000`       | Request timeout in milliseconds.                                          |
+| `maxRetries`            | `3`           | Retries after the first failed attempt.                                   |
+| `retryDelay`            | `1000`        | Base exponential retry delay in milliseconds.                             |
+| `layoutShiftThreshold`  | `8`           | Height delta that emits a diagnostic event.                               |
+| `debug`                 | `false`       | Enables development warnings.                                             |
 
 The existing `skeletonContainerClass` and `skeletonContainerStyle` inputs remain
 supported. In stable mode they are applied to the persistent root.
