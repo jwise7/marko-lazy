@@ -257,7 +257,7 @@ by browser tests or real-user monitoring without enabling console output.
 
 | Input                   | Default       | Purpose                                                                   |
 | ----------------------- | ------------- | ------------------------------------------------------------------------- |
-| `component`             | —             | Renderer name passed to `lazy-renderers.js`.                              |
+| `component`             | —             | Renderer name; optional only when `mode="server"`.                        |
 | `model`                 | —             | Input passed to the loaded component or endpoint.                         |
 | `layout`                | `"legacy"`    | Use `"stable"` to retain the layout wrapper.                              |
 | `reserveBlockSize`      | —             | Persistent minimum block size; enables stable layout.                     |

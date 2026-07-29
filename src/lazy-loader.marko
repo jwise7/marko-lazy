@@ -12,6 +12,8 @@ import {
 class {
   onCreate(input) {
     const mode = input.mode || "client";
+    const componentName =
+      input.component || (mode === "server" ? "server-content" : null);
     const stableLayout =
       input.layout === "stable" ||
       mode === "server" ||
@@ -20,7 +22,7 @@ class {
       Boolean(input.aspectRatio);
 
     this.state = {
-      componentName: input.component,
+      componentName,
       componentRenderer: null,
       error: null,
       loaded: mode === "server",
@@ -229,6 +231,9 @@ class {
     let lastError;
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt += 1) {
+      // Destruction can resolve an active retry wait, so guard every attempt.
+      if (this.destroyed) return;
+
       try {
         await this.prepareComponent();
         if (this.destroyed) return;
@@ -327,17 +332,25 @@ class {
       typeof AbortController === "function" ? new AbortController() : null;
     if (controller) this.abortControllers.add(controller);
 
-    const timeout = window.setTimeout(
-      () => controller?.abort(),
-      this.requestTimeout,
-    );
+    let timeout;
     try {
-      const response = await fetch(route, {
+      const request = fetch(route, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(model),
         signal: controller?.signal,
       });
+      const requestTimeout = new Promise((_, reject) => {
+        timeout = window.setTimeout(() => {
+          controller?.abort();
+          reject(
+            new Error(
+              `Request to "${route}" timed out after ${this.requestTimeout}ms.`,
+            ),
+          );
+        }, this.requestTimeout);
+      });
+      const response = await Promise.race([request, requestTimeout]);
       if (!response.ok)
         throw new Error(
           `Request to "${route}" failed with status ${response.status}.`,
@@ -429,7 +442,7 @@ if(state.stableLayout)
     ]
     ,style=component.containerStyle
     ,data-marko-lazy-component=state.componentName
-    ,aria-busy=(state.loading || !state.loaded ? "true" : "false")
+    ,aria-busy=(state.loading ? "true" : "false")
     if(state.mode === "server" && input.content)
       ${input.content.renderBody}
     else-if(state.rawHtml != null) -- $!{state.rawHtml}

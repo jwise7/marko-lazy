@@ -85,7 +85,7 @@ test("isWithinBuffer requires non-zero geometry and checks both viewport directi
   );
 });
 
-test("getRetryDelay applies bounded exponential backoff inputs", () => {
+test("getRetryDelay applies clamped exponential backoff inputs", () => {
   assert.equal(getRetryDelay(1000, 0), 1000);
   assert.equal(getRetryDelay(1000, 1), 2000);
   assert.equal(getRetryDelay(1000, 3), 8000);
