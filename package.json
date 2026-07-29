@@ -1,19 +1,26 @@
 {
-    "name": "marko-lazy",
-    "version": "1.0.5",
-    "description": "Marko based lazy loader",
-    "keywords": [
-      "marko",
-      "marko-widgets",
-      "components"
-    ],
-    "author": {
-      "name": "Jesse Wise"
-    },
-    "license": "MIT",
-    "repository": {
-      "type": "git",
-      "url": "git+https://github.com/jwise7/marko-lazy"
-    },
-    "type":"module"
+  "name": "marko-lazy",
+  "version": "1.1.0",
+  "description": "Marko component loader with viewport prefetching and layout-stability controls",
+  "keywords": [
+    "marko",
+    "lazy-loading",
+    "components",
+    "cls"
+  ],
+  "author": {
+    "name": "Jesse Wise"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jwise7/marko-lazy"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test"
   }
+}
